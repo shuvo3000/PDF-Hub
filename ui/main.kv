@@ -1,0 +1,142 @@
+#:kivy 2.3.0
+
+# --- Custom Navigation Icon Widget ---
+<NavIcon@ButtonBehavior+BoxLayout>:
+    source: ""
+    text: ""
+    on_press: None
+    orientation: "vertical"
+    padding: 5
+    spacing: 2
+
+    Image:
+        id: icon_img
+        source: root.source
+        allow_stretch: True
+        keep_ratio: True
+        size_hint_y: 0.8
+
+    Label:
+        text: root.text if not icon_img.texture else ""
+        color: (0.1, 0.1, 0.1, 1)
+        font_size: 12
+        halign: "center"
+        valign: "middle"
+
+
+# --- Root Layout for PDFhub ---
+<PDFhubRoot>:
+    orientation: "vertical"
+    padding: 10
+    spacing: 5
+
+    canvas.before:
+        Color:
+            rgba: 0.97, 0.97, 0.97, 1  # off-white background
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    # --- Search Bar (Top) ---
+    BoxLayout:
+        size_hint_y: 0.08
+        spacing: 10
+        canvas.before:
+            Color:
+                rgba: 0.94, 0.94, 0.94, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [8]
+        TextInput:
+            hint_text: "Search PDFs..."
+            background_color: (0, 0, 0, 0)
+            foreground_color: (0.2, 0.2, 0.2, 1)
+            font_size: 16
+            padding: 15, 10
+
+    # --- Main Content Area (Screens) ---
+    ScreenManager:
+        id: screen_manager
+
+        HomeScreen:
+            name: "home"
+            BoxLayout:
+                orientation: "vertical"
+                Label:
+                    text: "📄 Home – Recently opened PDFs"
+                    color: (0.1, 0.1, 0.1, 1)
+                    font_size: 20
+
+        EditScreen:
+            name: "edit"
+            BoxLayout:
+                orientation: "vertical"
+                Label:
+                    text: "✏️ Edit PDFs / Add Signatures"
+                    color: (0.1, 0.1, 0.1, 1)
+                    font_size: 20
+
+        SplitScreen:
+            name: "split"
+            BoxLayout:
+                orientation: "vertical"
+                Label:
+                    text: "📚 Split PDFs here"
+                    color: (0.1, 0.1, 0.1, 1)
+                    font_size: 20
+
+        MergeScreen:
+            name: "merge"
+            BoxLayout:
+                orientation: "vertical"
+                Label:
+                    text: "📎 Merge multiple PDFs"
+                    color: (0.1, 0.1, 0.1, 1)
+                    font_size: 20
+
+        SettingsScreen:
+            name: "settings"
+            BoxLayout:
+                orientation: "vertical"
+                Label:
+                    text: "⚙️ App Settings"
+                    color: (0.1, 0.1, 0.1, 1)
+                    font_size: 20
+
+    # --- Bottom Navigation Bar ---
+    BoxLayout:
+        size_hint_y: 0.1
+        spacing: 25
+        padding: [40, 5]
+        canvas.before:
+            Color:
+                rgba: 0.92, 0.95, 0.98, 1  # light blue shade
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        NavIcon:
+            source: "assets/icons/home.png"
+            text: "Home"
+            on_press: root.switch_tab("home")
+
+        NavIcon:
+            source: "assets/icons/edit.png"
+            text: "Edit"
+            on_press: root.switch_tab("edit")
+
+        NavIcon:
+            source: "assets/icons/split.png"
+            text: "Split"
+            on_press: root.switch_tab("split")
+
+        NavIcon:
+            source: "assets/icons/merge.png"
+            text: "Merge"
+            on_press: root.switch_tab("merge")
+
+        NavIcon:
+            source: "assets/icons/settings.png"
+            text: "Settings"
+            on_press: root.switch_tab("settings")
