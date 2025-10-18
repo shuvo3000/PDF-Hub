@@ -6,7 +6,7 @@ __pycache__/
 
 # Ignore all sample PDFs and temporary output
 assets/samples/
-
+assets/icons/Backup
 # Ignore split outputs and logs
 split_output/
 *.log
