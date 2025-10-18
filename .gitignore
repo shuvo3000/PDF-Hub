@@ -1,0 +1,15 @@
+# Ignore virtual environment
+.venv/
+
+# Ignore cache folders
+__pycache__/
+
+# Ignore all sample PDFs and temporary output
+assets/samples/
+
+# Ignore split outputs and logs
+split_output/
+*.log
+
+# Ignore compiled Python files
+*.pyc
