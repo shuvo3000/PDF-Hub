@@ -1,6 +1,49 @@
 #:kivy 2.3.0
+# ==========================================================
+#                  CLASS DEFINITIONS (TOP LEVEL)
+# ==========================================================
 
-# --- Custom Navigation Icon Widget ---
+# --------------------------
+# SPLIT SCREEN UI DEFINITION
+# --------------------------
+# This defines what the SplitScreen looks like in the app.
+# It must be declared at the top level (outside ScreenManager).
+<SplitScreen>:
+    name: "split"
+
+    BoxLayout:
+        orientation: "vertical"
+        spacing: 10
+        padding: 10
+
+        Label:
+            text: "📄 Select a PDF and enter split page number"
+            size_hint_y: None
+            height: 40
+            color: (0.2, 0.2, 0.2, 1)
+
+        ScrollView:
+            GridLayout:
+                id: split_grid
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                row_default_height: 40
+                spacing: 10
+
+        Button:
+            text: "Process Split"
+            size_hint_y: None
+            height: 50
+            background_color: (0.2, 0.5, 1, 1)
+            color: (1, 1, 1, 1)
+            on_press: root.process_split()
+
+
+# --------------------------
+# NAV ICON UI DEFINITION
+# --------------------------
+# Custom icon-button widget for bottom navigation bar.
 <NavIcon@ButtonBehavior+BoxLayout>:
     source: ""
     text: ""
@@ -24,18 +67,23 @@
         valign: "middle"
 
 
-# --- Root Layout for PDFhub ---
+
+# ==========================================================
+#                  MAIN APP LAYOUT (ROOT)
+# ==========================================================
 <PDFhubRoot>:
     orientation: "vertical"
     padding: 10
     spacing: 5
 
+    # --- Background ---
     canvas.before:
         Color:
-            rgba: 0.97, 0.97, 0.97, 1  # off-white background
+            rgba: 0.97, 0.97, 0.97, 1
         Rectangle:
             pos: self.pos
             size: self.size
+
 
     # --- Search Bar (Top) ---
     BoxLayout:
@@ -55,7 +103,8 @@
             font_size: 16
             padding: 15, 10
 
-    # --- Main Content Area (Screens) ---
+
+    # --- Screen Manager (Main Tabs) ---
     ScreenManager:
         id: screen_manager
 
@@ -79,12 +128,6 @@
 
         SplitScreen:
             name: "split"
-            BoxLayout:
-                orientation: "vertical"
-                Label:
-                    text: "📚 Split PDFs here"
-                    color: (0.1, 0.1, 0.1, 1)
-                    font_size: 20
 
         MergeScreen:
             name: "merge"
@@ -104,6 +147,7 @@
                     color: (0.1, 0.1, 0.1, 1)
                     font_size: 20
 
+
     # --- Bottom Navigation Bar ---
     BoxLayout:
         size_hint_y: 0.1
@@ -111,7 +155,7 @@
         padding: [40, 5]
         canvas.before:
             Color:
-                rgba: 0.92, 0.95, 0.98, 1  # light blue shade
+                rgba: 0.92, 0.95, 0.98, 1
             Rectangle:
                 pos: self.pos
                 size: self.size
