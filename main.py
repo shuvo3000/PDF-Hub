@@ -18,10 +18,20 @@ from kivy.uix.textinput import TextInput                    # Text box for enter
 from kivy.uix.button import Button                          # Buttons for actions
 from kivy.uix.label import Label                            # Label for displaying text
 from kivy.uix.popup import Popup                            # Popup dialog for success/error messages
+from kivy.uix.image import Image
+
 import os                                                   # Used for working with local file paths
 from pdf_engine.pdf_splitter import PDFSplitter             # Custom class handling PDF splitting logic
 from PyPDF2 import PdfReader                                # import here so we can count pages
 from ui.components.banner_message import BannerMessage    # This import is for the error and other types of message for this app    
+# --- Merge Screen (Handles PDF merging UI and logic) ---
+from pdf_engine.pdf_merger import PDFMerger   # add near other imports
+
+from kivy.uix.behaviors import DragBehavior   # allows a widget to be draggable
+from kivy.properties import ObjectProperty    # used to store file_path reference for each row
+
+from ui.components.draggable_row import DraggableRow  # import DraggableRow component
+
 
 # --- Load Kivy UI Layout ---
 # This loads the structure defined in ui/main.kv
@@ -240,13 +250,188 @@ class SplitScreen(Screen):
             BannerMessage.show(self, "⚠️ Please select at least one PDF to split.", msg_type="error")
 
 # --- Merge Screen (Placeholder for combining multiple PDFs) ---
+# --- Merge Screen (Handles PDF merging UI and logic) ---
+from pdf_engine.pdf_merger import PDFMerger   # add near other imports
+
+
 class MergeScreen(Screen):
-    pass
+    """Screen for merging multiple PDFs."""
+
+    def on_pre_enter(self):
+        """Load sample PDFs from assets/samples when tab opens (temporary)."""
+        self.ids.merge_list.clear_widgets()
+
+       
+        folder = "assets/samples"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        pdf_files = [f for f in os.listdir(folder) if f.endswith(".pdf")]
+        if not pdf_files:
+            BannerMessage.show(self, "No sample PDFs found in assets/samples.", msg_type="error")
+            return
+
+        # Add each PDF entry as a row
+        for file_name in pdf_files:
+            file_path = os.path.join(folder, file_name)
+
+            try:
+                reader = PdfReader(file_path)
+                num_pages = len(reader.pages)
+            except Exception as e:
+                num_pages = 0
+                print(f"⚠️ Error reading {file_name}: {e}")
+
+            #row = BoxLayout(size_hint_y=None, height=50, spacing=10, padding=5)
+            row = DraggableRow()  # each PDF entry is now a draggable row
+            row.file_path = file_path  # store path for later merging
+
+            # --- PDF Icon (small red symbol on the left) ---
+            row.add_widget(
+                Image(
+                    source="assets/icons/pdf_icon.png",
+                    size_hint_x=None,
+                    width=30
+                )
+            )
+
+            # --- Filename and page count ---
+            row.add_widget(
+                Label(
+                    text=f"{file_name} ({num_pages} pages)",
+                    halign="left",
+                    valign="middle",
+                    color=(0, 0, 0, 1)   # black text for visibility
+                )
+            )
+
+            # --- Drag handle icon (3 horizontal lines) ---
+            handle_btn = Image(
+                source="assets/icons/drag_handle.png",
+                size_hint_x=None,
+                width=28
+            )
+            row.handle = handle_btn
+            row.add_widget(handle_btn)
+
+            # --- Remove button (red trash icon) ---
+            remove_btn = Button(
+                background_normal="assets/icons/delete.png",  # 🗑️ your red delete icon
+                background_down="assets/icons/delete.png",
+                size_hint_x=None,
+                width=32,
+                background_color=(1, 0, 0, 0.1)  # light red background tint
+            )
+            remove_btn.bind(on_press=lambda btn, row=row: self.remove_row(row))
+            row.add_widget(remove_btn)
+
+
+            self.ids.merge_list.add_widget(row)
+
+        # Enable Merge button if 2+ files
+        self.ids.merge_btn.disabled = len(pdf_files) < 2
+
+    def remove_row(self, row):
+        """Remove a selected PDF entry."""
+        self.ids.merge_list.remove_widget(row)
+        BannerMessage.show(self, "Removed PDF from merge list.", msg_type="info")
+        self.ids.merge_btn.disabled = len(self.ids.merge_list.children) < 2
+
+    def on_enter(self):
+        """Bind the Merge button once."""
+        self.ids.merge_btn.bind(on_press=lambda instance: self.merge_pdfs())
+
+    def merge_pdfs(self):
+        """Perform PDF merge operation."""
+        # Collect file paths from rows
+        file_paths = [r.file_path for r in reversed(self.ids.merge_list.children)]
+
+        if len(file_paths) < 2:
+            BannerMessage.show(self, "⚠️ Select at least two PDFs to merge.", msg_type="error")
+            return
+
+        try:
+            merger = PDFMerger(file_paths)
+            output_path = merger.merge()
+            BannerMessage.show(self, f"✅ PDFs merged successfully!\nSaved at: {output_path}", msg_type="success")
+
+        except Exception as e:
+            BannerMessage.show(self, f"❌ Merge failed: {e}", msg_type="error")
+    def on_touch_up(self, touch):
+        """
+        Handles drop logic when a user releases a dragged row.
+
+        Steps:
+        1. Detect which row the drop occurred on.
+        2. Move the dragged row before that row in the layout.
+        3. Show confirmation via BannerMessage.
+        4. Reset dragging flags for all rows.
+        """
+        container = self.ids.merge_list          # main layout that holds all rows
+        rows = list(container.children)          # get list of current row widgets (reversed order)
+
+        # loop through every row to find where the user released the drag
+        for i, row in enumerate(rows):
+            # if drop position overlaps with this row
+            if row.collide_point(*touch.pos):
+                # find the row that is currently being dragged
+                dragged = [r for r in rows if getattr(r, 'dragging', False)]
+                if dragged:
+                    dragged_row = dragged[0]      # take the first (and only) dragged row
+                    # remove it temporarily from the layout
+                    container.remove_widget(dragged_row)
+                    # find where to insert (same index as drop target)
+                    insert_index = rows.index(row)
+                    # re-insert dragged row at new position
+                    container.add_widget(dragged_row, index=insert_index)
+                    # notify user visually
+                    BannerMessage.show(self, "✅ Files reordered successfully.", msg_type="info")
+                    break
+
+        # reset 'dragging' state for all rows after drop
+        for r in rows:
+            if hasattr(r, 'dragging'):
+                r.dragging = False
+
+        # call the parent method so Kivy continues normal event processing
+        return super().on_touch_up(touch)
+
 
 
 # --- Settings Screen (Placeholder for app preferences or about page) ---
 class SettingsScreen(Screen):
     pass
+
+class DraggableRow(DragBehavior, BoxLayout):
+    """
+    Represents a single draggable row in the Merge list.
+    Each row holds one PDF file entry (icon, name, remove button).
+    """
+
+    # store the actual PDF file path for this row
+    file_path = ObjectProperty(None)
+
+    def __init__(self, **kwargs):
+        # call parent constructors for both DragBehavior and BoxLayout
+        super().__init__(**kwargs)
+
+        # --- Drag configuration ---
+        self.drag_timeout = 100000   # long timeout disables “long press to drag” delay
+        self.drag_distance = 10      # start dragging when moved 10px
+        self.size_hint_y = None      # allow fixed height
+        self.height = 50             # row height
+        self.spacing = 10            # gap between inner widgets
+        self.padding = 5             # internal margin
+        self.dragging = False        # track whether this row is currently being dragged
+
+    def on_touch_down(self, touch):
+        """
+        Detect when the user begins touching this row.
+        Marks the row as 'dragging' if touch starts inside its area.
+        """
+        if self.collide_point(*touch.pos):
+            self.dragging = True     # mark this row as being moved
+        return super().on_touch_down(touch)
 
 
 # ==========================================================

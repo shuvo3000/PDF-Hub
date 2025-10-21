@@ -1,13 +1,12 @@
 #:kivy 2.3.0
+
 # ==========================================================
-#                  CLASS DEFINITIONS (TOP LEVEL)
+#                 CLASS DEFINITIONS (TOP LEVEL)
 # ==========================================================
 
 # --------------------------
 # SPLIT SCREEN UI DEFINITION
 # --------------------------
-# This defines what the SplitScreen looks like in the app.
-# It must be declared at the top level (outside ScreenManager).
 <SplitScreen>:
     name: "split"
 
@@ -41,9 +40,83 @@
 
 
 # --------------------------
+# MERGE SCREEN UI DEFINITION
+# --------------------------
+<MergeScreen>:
+    name: "merge"
+
+    BoxLayout:
+        orientation: "vertical"
+        spacing: dp(10)
+        padding: dp(10)
+
+        Label:
+            text: "📎 Merge multiple PDFs"
+            size_hint_y: None
+            height: dp(40)
+            color: (0.1, 0.1, 0.1, 1)
+
+        ScrollView:
+            do_scroll_x: False
+            do_scroll_y: True
+
+            GridLayout:
+                id: merge_list
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(6)
+
+                # Placeholder sample item (temporary)
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(50)
+                    spacing: dp(10)
+                    padding: dp(5)
+                    canvas.before:
+                        Color:
+                            rgba: 0.95, 0.95, 0.95, 1
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8]
+
+                    Image:
+                        source: "assets/icons/pdf_icon.png"
+                        size_hint_x: None
+                        width: dp(30)
+
+                    Label:
+                        text: "sample1.pdf (5 pages)"
+                        halign: "left"
+                        valign: "middle"
+
+                    Button:
+                        text: "☰"
+                        size_hint_x: None
+                        width: dp(40)
+                        background_normal: ""
+                        background_color: 0, 0, 0, 0
+
+                    Button:
+                        text: "❌"
+                        size_hint_x: None
+                        width: dp(40)
+                        background_normal: ""
+                        background_color: 1, 0, 0, 0.2
+
+        Button:
+            id: merge_btn
+            text: "Merge PDFs"
+            size_hint_y: None
+            height: dp(50)
+            background_color: 0.3, 0.5, 0.9, 1
+            disabled: True
+
+
+# --------------------------
 # NAV ICON UI DEFINITION
 # --------------------------
-# Custom icon-button widget for bottom navigation bar.
 <NavIcon@ButtonBehavior+BoxLayout>:
     source: ""
     text: ""
@@ -67,23 +140,20 @@
         valign: "middle"
 
 
-
 # ==========================================================
-#                  MAIN APP LAYOUT (ROOT)
+#                 MAIN APP LAYOUT (ROOT)
 # ==========================================================
 <PDFhubRoot>:
     orientation: "vertical"
     padding: 10
     spacing: 5
 
-    # --- Background ---
     canvas.before:
         Color:
             rgba: 0.97, 0.97, 0.97, 1
         Rectangle:
             pos: self.pos
             size: self.size
-
 
     # --- Search Bar (Top) ---
     BoxLayout:
@@ -96,13 +166,13 @@
                 pos: self.pos
                 size: self.size
                 radius: [8]
+
         TextInput:
             hint_text: "Search PDFs..."
             background_color: (0, 0, 0, 0)
             foreground_color: (0.2, 0.2, 0.2, 1)
             font_size: 16
             padding: 15, 10
-
 
     # --- Screen Manager (Main Tabs) ---
     ScreenManager:
@@ -131,12 +201,6 @@
 
         MergeScreen:
             name: "merge"
-            BoxLayout:
-                orientation: "vertical"
-                Label:
-                    text: "📎 Merge multiple PDFs"
-                    color: (0.1, 0.1, 0.1, 1)
-                    font_size: 20
 
         SettingsScreen:
             name: "settings"
@@ -146,7 +210,6 @@
                     text: "⚙️ App Settings"
                     color: (0.1, 0.1, 0.1, 1)
                     font_size: 20
-
 
     # --- Bottom Navigation Bar ---
     BoxLayout:
