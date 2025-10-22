@@ -1,74 +1,91 @@
-# -----------------------------
-# PDFhub: Main Application File
-# -----------------------------
-# This file handles:
-# - Screen navigation (Home, Edit, Split, Merge, Settings)
-# - Dynamic PDF grid rendering
-# - PDF splitting logic integration with PDFSplitter class
-# - Popup notifications for user actions
+# ==========================================================
+#                    PDFhub: Main Application
+# ==========================================================
+# Handles:
+#   • Navigation between Home, Edit, Split, Merge, and Settings screens
+#   • PDF splitting and merging logic
+#   • Folder creation and file picker (Home tab)
+#   • Banner notifications (success/error/info)
+# ==========================================================
 
-# --- Import core Kivy components ---
-from kivy.app import App                                    # Base class for all Kivy apps
-from kivy.lang import Builder                               # Loads .kv files for UI structure
-from kivy.uix.boxlayout import BoxLayout                    # Main layout for app container
-from kivy.uix.screenmanager import ScreenManager, Screen    # Manages multiple screens/tabs
-from kivy.uix.gridlayout import GridLayout                  # For displaying PDFs in grid format
-from kivy.uix.checkbox import CheckBox                      # Checkbox widget for file selection
-from kivy.uix.textinput import TextInput                    # Text box for entering split page
-from kivy.uix.button import Button                          # Buttons for actions
-from kivy.uix.label import Label                            # Label for displaying text
-from kivy.uix.popup import Popup                            # Popup dialog for success/error messages
+# --------------------------
+# Kivy imports
+# --------------------------
+from kivy.app import App
+from kivy.lang import Builder
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.checkbox import CheckBox
+from kivy.uix.textinput import TextInput
+from kivy.uix.button import Button
+from kivy.uix.label import Label
 from kivy.uix.image import Image
+from kivy.uix.behaviors import DragBehavior
+from kivy.properties import ObjectProperty
+from kivy.utils import platform
 
-import os                                                   # Used for working with local file paths
-from pdf_engine.pdf_splitter import PDFSplitter             # Custom class handling PDF splitting logic
-from PyPDF2 import PdfReader                                # import here so we can count pages
-from ui.components.banner_message import BannerMessage    # This import is for the error and other types of message for this app    
-# --- Merge Screen (Handles PDF merging UI and logic) ---
-from pdf_engine.pdf_merger import PDFMerger   # add near other imports
+# --------------------------
+# Python stdlib imports
+# --------------------------
+import os
+import json
+import subprocess
 
-from kivy.uix.behaviors import DragBehavior   # allows a widget to be draggable
-from kivy.properties import ObjectProperty    # used to store file_path reference for each row
+# --------------------------
+# Third-party imports
+# --------------------------
+from PyPDF2 import PdfReader
+from plyer import filechooser
 
-from ui.components.draggable_row import DraggableRow  # import DraggableRow component
+# --------------------------
+# Project-specific imports
+# --------------------------
+from pdf_engine.pdf_splitter import PDFSplitter
+from pdf_engine.pdf_merger import PDFMerger
+from ui.components.banner_message import BannerMessage
+from ui.components.draggable_row import DraggableRow
 
-
-# --- Load Kivy UI Layout ---
-# This loads the structure defined in ui/main.kv
+# Load Kivy UI layout
 Builder.load_file("ui/main.kv")
 
 
 # ==========================================================
-#                   SCREEN DEFINITIONS
+#                    SCREEN DEFINITIONS
 # ==========================================================
 
-# --- Home Screen (Placeholder for now) ---
+# --------------------------
+# HOME SCREEN
+# --------------------------
 class HomeScreen(Screen):
-    pass  # To be implemented later (file browser or recent PDFs view)
-
-
-# --- Edit Screen (Placeholder for future form filling/signature feature) ---
-class EditScreen(Screen):
+    """Displays branding, recent files, and quick-access buttons."""
     pass
 
 
-# --- Split Screen (Handles PDF splitting UI and logic) ---
+# --------------------------
+# EDIT SCREEN (Placeholder)
+# --------------------------
+class EditScreen(Screen):
+    """Reserved for future PDF editing/signature features."""
+    pass
+
+
+# --------------------------
+# SPLIT SCREEN
+# --------------------------
 class SplitScreen(Screen):
+    """Displays PDFs and allows users to split them by page number."""
 
-    # Triggered each time the user opens the Split tab
     def on_pre_enter(self):
-        """Builds the grid dynamically when entering the Split tab (modern design with page count)."""
+        """Load sample PDFs dynamically when entering Split tab."""
         from kivy.graphics import Color, Rectangle, Line
-        from kivy.uix.image import Image
 
-        # --- Clear previous rows before rebuilding ---
+        # Clear existing grid
         self.ids.split_grid.clear_widgets()
 
         folder = "assets/samples"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        os.makedirs(folder, exist_ok=True)
 
-        # Get all PDF files in the folder
         pdf_files = [f for f in os.listdir(folder) if f.endswith(".pdf")]
         if not pdf_files:
             self.ids.split_grid.add_widget(
@@ -80,11 +97,9 @@ class SplitScreen(Screen):
             )
             return
 
-        # Loop through each PDF and build a row for it
+        # Build rows for each PDF
         for i, pdf_file in enumerate(pdf_files):
             file_path = os.path.join(folder, pdf_file)
-
-            # --- Read total number of pages using PyPDF2 ---
             try:
                 reader = PdfReader(file_path)
                 num_pages = len(reader.pages)
@@ -92,189 +107,106 @@ class SplitScreen(Screen):
                 num_pages = 0
                 print(f"⚠️ Could not read {pdf_file}: {e}")
 
-            # --- Create row layout ---
-            row = GridLayout(
-                cols=4, size_hint_y=None, height=60, padding=[10, 5], spacing=15
-            )
+            row = GridLayout(cols=4, size_hint_y=None, height=60, padding=[10, 5], spacing=15)
 
-            # --- Alternate row background for visual clarity ---
+            # Alternate row background
             with row.canvas.before:
-                Color(
-                    rgba=(0.97, 0.97, 0.97, 1)
-                    if i % 2 == 0
-                    else (0.93, 0.93, 0.93, 1)
-                )
+                Color(rgba=(0.97, 0.97, 0.97, 1) if i % 2 == 0 else (0.93, 0.93, 0.93, 1))
                 row.rect = Rectangle(pos=row.pos, size=row.size)
+            row.bind(pos=lambda i, _: setattr(row.rect, "pos", i.pos),
+                     size=lambda i, _: setattr(row.rect, "size", i.size))
 
-            # Keep background responsive
-            def update_rect(instance, _):
-                row.rect.pos = instance.pos
-                row.rect.size = instance.size
-
-            row.bind(pos=update_rect, size=update_rect)
-
-            # --- Optional divider line ---
+            # Divider line
             with row.canvas.after:
                 Color(0.85, 0.85, 0.85, 1)
                 row.line = Line(points=[row.x, row.y, row.x + row.width, row.y], width=1)
+            row.bind(pos=lambda i, _: setattr(row.line, "points", [i.x, i.y, i.x + i.width, i.y]),
+                     size=lambda i, _: setattr(row.line, "points", [i.x, i.y, i.x + i.width, i.y]))
 
-            def update_line(instance, _):
-                row.line.points = [
-                    instance.x,
-                    instance.y,
-                    instance.x + instance.width,
-                    instance.y,
-                ]
-
-            row.bind(pos=update_line, size=update_line)
-
-            # --- Checkbox (custom design) ---
+            # Add widgets per column
             checkbox = CheckBox(size_hint_x=None, width=35)
             checkbox.background_checkbox_normal = "assets/icons/checkbox_off.png"
             checkbox.background_checkbox_down = "assets/icons/checkbox_on.png"
 
-            # --- PDF Icon (small red symbol) ---
-            pdf_icon = Image(
-                source="assets/icons/pdf_icon.png",
-                size_hint_x=None,
-                width=28,
-                allow_stretch=True,
-                keep_ratio=True,
-            )
+            pdf_icon = Image(source="assets/icons/pdf_icon.png", size_hint_x=None, width=28)
+            label_text = f"{pdf_file} ({num_pages} pages)" if num_pages else f"{pdf_file} (Unreadable)"
+            label = Label(text=label_text, color=(0.1, 0.1, 0.1, 1),
+                          halign="left", valign="middle", text_size=(400, None), font_size=15)
 
-            # --- Label with filename and page count ---
-            label_text = (
-                f"{pdf_file} ({num_pages} pages)"
-                if num_pages
-                else f"{pdf_file} (Unreadable)"
-            )
-            label = Label(
-                text=label_text,
-                color=(0.1, 0.1, 0.1, 1),
-                halign="left",
-                valign="middle",
-                text_size=(400, None),
-                font_size=15,
-            )
-
-            # --- Page number textbox (limits user input) ---
             textbox = TextInput(
                 hint_text=f"1–{num_pages}" if num_pages else "Page #",
-                size_hint_x=None,
-                width=100,
+                size_hint_x=None, width=100,
                 background_color=(1, 1, 1, 1),
                 foreground_color=(0, 0, 0, 1),
-                font_size=14,
-                halign="center",
-                input_filter="int",  # restricts input to numbers only
+                font_size=14, halign="center", input_filter="int"
             )
-
-            # Store max allowed page as a custom property
             textbox.max_page = num_pages
 
-            # Add widgets to the row
+            # Add to layout
             row.add_widget(checkbox)
             row.add_widget(pdf_icon)
             row.add_widget(label)
             row.add_widget(textbox)
             self.ids.split_grid.add_widget(row)
 
-    # ======================================================
-    #               PROCESS SPLIT LOGIC
-    # ======================================================
     def process_split(self):
-        """
-        Handles splitting the selected PDFs based on user input.
-        This version:
-        ✅ Uses Toast messages for feedback
-        ✅ Validates user input for page numbers
-        ✅ Prevents invalid page numbers (e.g., 0 or beyond max pages)
-        """
-        from ui.components.toast import Toast   # Import toast component
-
-        # --- Check if split_grid exists ---
+        """Perform PDF split on selected rows."""
         if not hasattr(self.ids, "split_grid"):
             print("⚠️ split_grid not found in layout")
             return
 
-        any_selected = False  # Tracks if user selected at least one file
+        any_selected = False
 
-        # --- Loop through each row (PDF entry) in the grid ---
         for row in self.ids.split_grid.children:
-            # row.children returns widgets in reverse order
-            widgets = row.children[::-1]
+            widgets = row.children[::-1]  # Reverse order
+            checkbox, pdf_icon, label, textbox = widgets[0], widgets[1], widgets[2], widgets[3]
 
-            # Order: [checkbox, pdf_icon, label, textbox]
-            checkbox = widgets[0]
-            label = widgets[2]   # skip icon in the middle
-            textbox = widgets[3]
-
-            # Proceed only if checkbox is selected
             if checkbox.active:
                 any_selected = True
-                file_name = label.text.split(" (")[0]  # Extract pure file name (without page count)
+                file_name = label.text.split(" (")[0]
                 file_path = os.path.join("assets/samples", file_name)
-
                 try:
-                    # --- Validate text box input ---
+                    # Validate page number
                     if not textbox.text.strip():
                         raise ValueError("Please enter a page number before splitting.")
-
-                    # Convert input to integer
                     page_num = int(textbox.text.strip())
-
-                    # Get max page count (saved earlier during load)
                     max_page = getattr(textbox, "max_page", 0)
-
-                    # --- Validate page number range ---
                     if page_num <= 0 or page_num >= max_page:
                         raise ValueError(f"Page number must be between 1 and {max_page - 1}.")
 
-                    # --- Perform the split ---
+                    # Split file
                     splitter = PDFSplitter(file_path)
-                    part1, part2 = splitter.split(page_num)
-
-                    # ✅ Success toast message
+                    splitter.split(page_num)
                     BannerMessage.show(self, "✅ PDF split completed successfully!", msg_type="success")
-
                 except ValueError as ve:
-                    # ⚠️ Invalid user input
-                    BannerMessage.show(self, f"{ve}", msg_type="error")
-
+                    BannerMessage.show(self, str(ve), msg_type="error")
                 except Exception as e:
-                    # ⚠️ Unexpected error
                     BannerMessage.show(self, f"Error splitting {file_name}: {e}", msg_type="error")
 
-        # --- No file was selected ---
         if not any_selected:
             BannerMessage.show(self, "⚠️ Please select at least one PDF to split.", msg_type="error")
 
-# --- Merge Screen (Placeholder for combining multiple PDFs) ---
-# --- Merge Screen (Handles PDF merging UI and logic) ---
-from pdf_engine.pdf_merger import PDFMerger   # add near other imports
 
-
+# --------------------------
+# MERGE SCREEN
+# --------------------------
 class MergeScreen(Screen):
-    """Screen for merging multiple PDFs."""
+    """Displays draggable list of PDFs to merge."""
 
     def on_pre_enter(self):
-        """Load sample PDFs from assets/samples when tab opens (temporary)."""
+        """Load sample PDFs dynamically."""
         self.ids.merge_list.clear_widgets()
 
-       
         folder = "assets/samples"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-
+        os.makedirs(folder, exist_ok=True)
         pdf_files = [f for f in os.listdir(folder) if f.endswith(".pdf")]
+
         if not pdf_files:
             BannerMessage.show(self, "No sample PDFs found in assets/samples.", msg_type="error")
             return
 
-        # Add each PDF entry as a row
         for file_name in pdf_files:
             file_path = os.path.join(folder, file_name)
-
             try:
                 reader = PdfReader(file_path)
                 num_pages = len(reader.pages)
@@ -282,70 +214,41 @@ class MergeScreen(Screen):
                 num_pages = 0
                 print(f"⚠️ Error reading {file_name}: {e}")
 
-            #row = BoxLayout(size_hint_y=None, height=50, spacing=10, padding=5)
-            row = DraggableRow()  # each PDF entry is now a draggable row
-            row.file_path = file_path  # store path for later merging
-
-            # --- PDF Icon (small red symbol on the left) ---
-            row.add_widget(
-                Image(
-                    source="assets/icons/pdf_icon.png",
-                    size_hint_x=None,
-                    width=30
-                )
-            )
-
-            # --- Filename and page count ---
-            row.add_widget(
-                Label(
-                    text=f"{file_name} ({num_pages} pages)",
-                    halign="left",
-                    valign="middle",
-                    color=(0, 0, 0, 1)   # black text for visibility
-                )
-            )
-
-            # --- Drag handle icon (3 horizontal lines) ---
-            handle_btn = Image(
-                source="assets/icons/drag_handle.png",
-                size_hint_x=None,
-                width=28
-            )
+            row = DraggableRow()
+            row.file_path = file_path
+            row.add_widget(Image(source="assets/icons/pdf_icon.png", size_hint_x=None, width=30))
+            row.add_widget(Label(
+                text=f"{file_name} ({num_pages} pages)",
+                halign="left", valign="middle", color=(0, 0, 0, 1)
+            ))
+            handle_btn = Image(source="assets/icons/drag_handle.png", size_hint_x=None, width=28)
             row.handle = handle_btn
             row.add_widget(handle_btn)
 
-            # --- Remove button (red trash icon) ---
             remove_btn = Button(
-                background_normal="assets/icons/delete.png",  # 🗑️ your red delete icon
+                background_normal="assets/icons/delete.png",
                 background_down="assets/icons/delete.png",
-                size_hint_x=None,
-                width=32,
-                background_color=(1, 0, 0, 0.1)  # light red background tint
+                size_hint_x=None, width=32, background_color=(1, 0, 0, 0.1)
             )
-            remove_btn.bind(on_press=lambda btn, row=row: self.remove_row(row))
+            remove_btn.bind(on_press=lambda btn, r=row: self.remove_row(r))
             row.add_widget(remove_btn)
-
-
             self.ids.merge_list.add_widget(row)
 
-        # Enable Merge button if 2+ files
         self.ids.merge_btn.disabled = len(pdf_files) < 2
 
     def remove_row(self, row):
-        """Remove a selected PDF entry."""
+        """Remove selected PDF row."""
         self.ids.merge_list.remove_widget(row)
         BannerMessage.show(self, "Removed PDF from merge list.", msg_type="info")
         self.ids.merge_btn.disabled = len(self.ids.merge_list.children) < 2
 
     def on_enter(self):
-        """Bind the Merge button once."""
+        """Bind merge button."""
         self.ids.merge_btn.bind(on_press=lambda instance: self.merge_pdfs())
 
     def merge_pdfs(self):
-        """Perform PDF merge operation."""
-        # Collect file paths from rows
+        """Combine all selected PDFs."""
         file_paths = [r.file_path for r in reversed(self.ids.merge_list.children)]
-
         if len(file_paths) < 2:
             BannerMessage.show(self, "⚠️ Select at least two PDFs to merge.", msg_type="error")
             return
@@ -354,119 +257,187 @@ class MergeScreen(Screen):
             merger = PDFMerger(file_paths)
             output_path = merger.merge()
             BannerMessage.show(self, f"✅ PDFs merged successfully!\nSaved at: {output_path}", msg_type="success")
-
         except Exception as e:
             BannerMessage.show(self, f"❌ Merge failed: {e}", msg_type="error")
+
     def on_touch_up(self, touch):
-        """
-        Handles drop logic when a user releases a dragged row.
-
-        Steps:
-        1. Detect which row the drop occurred on.
-        2. Move the dragged row before that row in the layout.
-        3. Show confirmation via BannerMessage.
-        4. Reset dragging flags for all rows.
-        """
-        container = self.ids.merge_list          # main layout that holds all rows
-        rows = list(container.children)          # get list of current row widgets (reversed order)
-
-        # loop through every row to find where the user released the drag
-        for i, row in enumerate(rows):
-            # if drop position overlaps with this row
+        """Handle row reordering."""
+        container = self.ids.merge_list
+        rows = list(container.children)
+        for row in rows:
             if row.collide_point(*touch.pos):
-                # find the row that is currently being dragged
                 dragged = [r for r in rows if getattr(r, 'dragging', False)]
                 if dragged:
-                    dragged_row = dragged[0]      # take the first (and only) dragged row
-                    # remove it temporarily from the layout
+                    dragged_row = dragged[0]
                     container.remove_widget(dragged_row)
-                    # find where to insert (same index as drop target)
                     insert_index = rows.index(row)
-                    # re-insert dragged row at new position
                     container.add_widget(dragged_row, index=insert_index)
-                    # notify user visually
                     BannerMessage.show(self, "✅ Files reordered successfully.", msg_type="info")
                     break
-
-        # reset 'dragging' state for all rows after drop
         for r in rows:
             if hasattr(r, 'dragging'):
                 r.dragging = False
-
-        # call the parent method so Kivy continues normal event processing
         return super().on_touch_up(touch)
 
 
-
-# --- Settings Screen (Placeholder for app preferences or about page) ---
+# --------------------------
+# SETTINGS SCREEN (Placeholder)
+# --------------------------
 class SettingsScreen(Screen):
     pass
 
-class DraggableRow(DragBehavior, BoxLayout):
-    """
-    Represents a single draggable row in the Merge list.
-    Each row holds one PDF file entry (icon, name, remove button).
-    """
 
-    # store the actual PDF file path for this row
+# --------------------------
+# DRAGGABLE ROW (Merge helper)
+# --------------------------
+class DraggableRow(DragBehavior, BoxLayout):
+    """Each row in Merge tab can be dragged to reorder."""
     file_path = ObjectProperty(None)
 
     def __init__(self, **kwargs):
-        # call parent constructors for both DragBehavior and BoxLayout
         super().__init__(**kwargs)
-
-        # --- Drag configuration ---
-        self.drag_timeout = 100000   # long timeout disables “long press to drag” delay
-        self.drag_distance = 10      # start dragging when moved 10px
-        self.size_hint_y = None      # allow fixed height
-        self.height = 50             # row height
-        self.spacing = 10            # gap between inner widgets
-        self.padding = 5             # internal margin
-        self.dragging = False        # track whether this row is currently being dragged
+        self.drag_timeout = 100000
+        self.drag_distance = 10
+        self.size_hint_y = None
+        self.height = 50
+        self.spacing = 10
+        self.padding = 5
+        self.dragging = False
 
     def on_touch_down(self, touch):
-        """
-        Detect when the user begins touching this row.
-        Marks the row as 'dragging' if touch starts inside its area.
-        """
         if self.collide_point(*touch.pos):
-            self.dragging = True     # mark this row as being moved
+            self.dragging = True
         return super().on_touch_down(touch)
 
 
 # ==========================================================
-#                   MAIN APP LAYOUT
+#                   ROOT LAYOUT CLASS
 # ==========================================================
-
-# Root layout class manages the bottom tab navigation and screen switching
 class PDFhubRoot(BoxLayout):
+    """Root container managing bottom navigation and screen switching."""
 
     def switch_tab(self, tab_name):
-        """Switches between Home, Edit, Split, Merge, and Settings tabs."""
+        """Switch between screens."""
         screen_manager = self.ids.screen_manager
         print(f"🔄 Switching to tab: {tab_name}")
         screen_manager.current = tab_name
 
 
 # ==========================================================
-#                   MAIN APP INITIALIZER
+#                   MAIN APP CLASS
 # ==========================================================
-
 class PDFhubApp(App):
-    """Main entry point for the Kivy application."""
+    """Main application controller."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.user_pdf_dir = None
+        self.recent_file_path = None
 
     def build(self):
-        # Set the app window title
+        """Initialize and build UI."""
         self.title = "PDFhub"
+        self.root = PDFhubRoot()
+        self.ensure_pdfhub_folder()
+        self.load_recent_files()
+        return self.root
 
-        # Load the main layout
-        return PDFhubRoot()
+    # ------------------------------------------------------
+    # Ensure Documents/PDFHub exists
+    # ------------------------------------------------------
+    def ensure_pdfhub_folder(self):
+        """Create Documents/PDFHub folder if missing."""
+        try:
+            if platform == "win":
+                base = os.path.join(os.path.expanduser("~"), "Documents")
+            elif platform in ("android", "ios"):
+                base = os.path.join(os.path.expanduser("~"), "Documents")
+            else:
+                base = os.path.expanduser("~")
+
+            self.user_pdf_dir = os.path.join(base, "PDFHub")
+            os.makedirs(self.user_pdf_dir, exist_ok=True)
+
+            self.recent_file_path = os.path.join(self.user_pdf_dir, "recent.json")
+            if not os.path.exists(self.recent_file_path):
+                with open(self.recent_file_path, "w") as f:
+                    json.dump([], f)
+
+            BannerMessage.show(self.root, "📁 PDFHub folder ready")
+
+        except Exception as e:
+            BannerMessage.show(self.root, f"Error creating folder: {e}")
+
+    # ------------------------------------------------------
+    # Load recent files
+    # ------------------------------------------------------
+    def load_recent_files(self):
+        """Load 5 most recent PDF paths."""
+        try:
+            if not self.recent_file_path or not os.path.exists(self.recent_file_path):
+                return []
+            with open(self.recent_file_path, "r") as f:
+                data = json.load(f)
+            return data[-5:]
+        except Exception as e:
+            BannerMessage.show(self.root, f"Error loading recent files: {e}")
+            return []
+
+    # ------------------------------------------------------
+    # File picker
+    # ------------------------------------------------------
+    def on_open_pdf_file(self):
+        """Open system file picker for PDFs."""
+        try:
+            paths = filechooser.open_file(title="Select a PDF", filters=[("PDF files", "*.pdf")])
+            if not paths:
+                BannerMessage.show(self.root, "No file selected.")
+                return
+            selected = paths[0]
+            BannerMessage.show(self.root, f"Opened: {os.path.basename(selected)}")
+            self.update_recent_list(selected)
+        except Exception as e:
+            BannerMessage.show(self.root, f"Error opening file: {e}")
+
+    # ------------------------------------------------------
+    # Open PDFHub folder
+    # ------------------------------------------------------
+    def on_open_pdfhub_folder(self):
+        """Open user's PDFHub folder in file explorer."""
+        try:
+            if platform == "win":
+                os.startfile(self.user_pdf_dir)
+            elif platform == "macosx":
+                subprocess.call(["open", self.user_pdf_dir])
+            elif platform == "linux":
+                subprocess.call(["xdg-open", self.user_pdf_dir])
+            else:
+                BannerMessage.show(self.root, "Folder open not supported on mobile.")
+        except Exception as e:
+            BannerMessage.show(self.root, f"Error opening folder: {e}")
+
+    # ------------------------------------------------------
+    # Update recent.json
+    # ------------------------------------------------------
+    def update_recent_list(self, file_path):
+        """Append new file to recent.json (keep last 5)."""
+        try:
+            with open(self.recent_file_path, "r") as f:
+                data = json.load(f)
+
+            if file_path not in data:
+                data.append(file_path)
+                data = data[-5:]
+                with open(self.recent_file_path, "w") as f:
+                    json.dump(data, f, indent=2)
+
+            BannerMessage.show(self.root, "✅ Recent list updated")
+        except Exception as e:
+            BannerMessage.show(self.root, f"Error updating recent list: {e}")
 
 
 # ==========================================================
 #                   APP EXECUTION
 # ==========================================================
-
-# Launch the Kivy app
 if __name__ == "__main__":
     PDFhubApp().run()

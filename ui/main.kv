@@ -141,6 +141,115 @@
 
 
 # ==========================================================
+#                 HOME SCREEN (NEW)
+# ==========================================================
+<RoundedAccentButton@Button>:
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    color: 1, 1, 1, 1
+    font_size: "16sp"
+    size_hint_y: None
+    height: dp(48)
+    canvas.before:
+        Color:
+            rgba: (0.23, 0.56, 0.88, 1) if self.state == "normal" else (0.18, 0.49, 0.82, 1)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [12, 12, 12, 12]
+
+
+<HomeScreen>:
+    name: "home"
+
+    BoxLayout:
+        orientation: "vertical"
+        spacing: dp(12)
+        padding: dp(16)
+        canvas.before:
+            Color:
+                rgba: 0.97, 0.97, 0.97, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        # ----- Top Branding -----
+        BoxLayout:
+            size_hint_y: None
+            height: dp(64)
+            spacing: dp(12)
+
+            Image:
+                source: "assets/icons/app_logo.png"
+                size_hint_x: None
+                width: dp(48)
+                allow_stretch: True
+                keep_ratio: True
+
+            BoxLayout:
+                orientation: "vertical"
+                spacing: dp(2)
+
+                Label:
+                    text: "PDFHub"
+                    bold: True
+                    color: 0.12, 0.12, 0.12, 1
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                    font_size: "20sp"
+
+                Label:
+                    text: "Manage your PDFs easily  •  Developed by Nazmul Hasan"
+                    color: 0.35, 0.35, 0.35, 1
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                    font_size: "13sp"
+
+        Widget:
+            size_hint_y: None
+            height: dp(1)
+            canvas:
+                Color:
+                    rgba: 0, 0, 0, 0.06
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+        # ----- Middle (Recent Files Placeholder) -----
+        BoxLayout:
+            id: recent_container
+            orientation: "vertical"
+            padding: dp(4)
+            Label:
+                id: recent_empty_label
+                text: "Home – Recently opened PDFs\\n\\nNo recent PDFs. Open one to get started."
+                color: 0.25, 0.25, 0.25, 1
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+                font_size: "16sp"
+
+        # ----- Bottom Quick Access -----
+        BoxLayout:
+            size_hint_y: None
+            height: dp(64)
+            spacing: dp(12)
+
+            RoundedAccentButton:
+                id: btn_open_pdf_file
+                text: "📂  Open PDF File"
+                # on_release: app.on_open_pdf_file()   # (to wire in Step 2)
+
+            RoundedAccentButton:
+                id: btn_open_pdfhub_folder
+                text: "📁  Open PDFHub Folder"
+                # on_release: app.on_open_pdfhub_folder()   # (to wire in Step 2)
+
+
+# ==========================================================
 #                 MAIN APP LAYOUT (ROOT)
 # ==========================================================
 <PDFhubRoot>:
@@ -180,12 +289,6 @@
 
         HomeScreen:
             name: "home"
-            BoxLayout:
-                orientation: "vertical"
-                Label:
-                    text: "📄 Home – Recently opened PDFs"
-                    color: (0.1, 0.1, 0.1, 1)
-                    font_size: 20
 
         EditScreen:
             name: "edit"
