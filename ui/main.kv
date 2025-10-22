@@ -241,12 +241,13 @@
             RoundedAccentButton:
                 id: btn_open_pdf_file
                 text: "📂  Open PDF File"
-                # on_release: app.on_open_pdf_file()   # (to wire in Step 2)
+                on_release: app.controller.on_open_pdf_file()
 
             RoundedAccentButton:
                 id: btn_open_pdfhub_folder
                 text: "📁  Open PDFHub Folder"
-                # on_release: app.on_open_pdfhub_folder()   # (to wire in Step 2)
+                on_release: app.controller.on_open_pdfhub_folder()
+
 
 
 # ==========================================================
@@ -286,6 +287,7 @@
     # --- Screen Manager (Main Tabs) ---
     ScreenManager:
         id: screen_manager
+        app: app
 
         HomeScreen:
             name: "home"
